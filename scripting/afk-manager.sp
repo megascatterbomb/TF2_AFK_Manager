@@ -1,7 +1,13 @@
 #include <sourcemod>
 #include <sdktools>
 
+// TF2 ConVars
+ConVar g_hIdleMaxTime;	// ConVar for idle max time
+
+// Plugin ConVars
 ConVar g_hAFKTime;				  // ConVar for AFK time
+ConVar g_hAFKAction;			  // ConVar for AFK action
+ConVar g_hAdminImmune;		  // ConVar for admin immunity
 ConVar g_hDisplayAFKMessage;	  // ConVar for displaying AFK message notification
 ConVar g_hDisplayTextEntities;	  // ConVar for displaying text entities
 
@@ -15,14 +21,22 @@ public Plugin myinfo =
 	name		= "[TF2] AFK Manager",
 	author		= "roxrosykid",
 	description = "Notifies others if player went AFK and renders AFK message above players' head.",
-	version		= "1.0.3",
+	version		= "1.0.4",
 	url			= "https://github.com/roxrosykid"
 };
 
 public void OnPluginStart()
 {
+	g_hIdleMaxTime		   = FindConVar("mp_idlemaxtime");	// Get the idle max time ConVar
+
 	// Create the ConVar for AFK time
 	g_hAFKTime			   = CreateConVar("sm_afk_time", "300.0", "Time in seconds before a player is considered AFK", FCVAR_NONE, true, 0.0);
+
+	// Create the ConVar for AFK action
+	g_hAFKAction		   = CreateConVar("sm_afk_action", "1", "Action to take when a player has been AFK for mp_idlemaxtime minutes (0 = none, 1 = move to spectator then kick if still idle, 2 = kick)", FCVAR_NONE, true, 0.0, true, 2.0);
+
+	// Create the ConVar for admin immunity
+	g_hAdminImmune 	       = CreateConVar("sm_afk_admin_immune", "1", "Admin immunity for AFK action (0 = no, 1 = immune to all actions, 2 = immune to kicks only", FCVAR_NONE, true, 0.0, true, 2.0);
 
 	// Create the ConVar for displaying AFK message notification
 	g_hDisplayAFKMessage   = CreateConVar("sm_afk_message", "1", "Display AFK message notification (1 = Yes, 0 = No)", FCVAR_NONE, true, 0.0, true, 1.0);
@@ -52,10 +66,30 @@ public void OnClientPutInServer(int client)
 	g_iAFKTimerEntity[client] = -1;
 }
 
+bool IsImmune(client, isKick)
+{
+	int iFlags = GetUserFlagBits(client);
+
+	if (iFlags & (ADMFLAG_GENERIC | ADMFLAG_ROOT) <= 0)
+	{
+		return false;
+	}
+	if (g_hAdminImmune.IntValue == 1)
+	{
+		return true;
+	}
+	else if (g_hAdminImmune.IntValue == 2 && isKick)
+	{
+		return true;
+	}
+	return false;
+}
+
 public Action Timer_CheckAFK(Handle timer)
 {
 	float currentTime = GetEngineTime();
 	float afkTime	  = g_hAFKTime.FloatValue;	  // Get the AFK time from the ConVar
+	float actionTime  = g_hIdleMaxTime.FloatValue * 60.0;
 
 	for (int i = 1; i <= MaxClients; i++)
 	{
@@ -63,7 +97,34 @@ public Action Timer_CheckAFK(Handle timer)
 		{
 			float timeSinceLastAction = currentTime - g_fLastAction[i];
 
-			if (timeSinceLastAction >= afkTime && !g_bIsAFK[i])
+			if (timeSinceLastAction >= actionTime && g_hAFKAction.IntValue > 0) // has been AFK for mp_idlemaxtime minutes
+			{
+				if (g_hAFKAction.IntValue == 1 && !IsImmune(i, false)) // Move to spectator
+				{
+					if (GetClientTeam(i) == 1 && !IsImmune(i, true)) // If already in spectator, kick
+					{
+						RemoveAFKEntity(i);
+						PrintToChatAll("%N has been kicked for being AFK.", i);
+						KickClient(i, "You were kicked for being AFK.");
+						return Plugin_Continue;
+					}
+					else if (GetClientTeam(i) != 1) // Move player to spectator team
+					{
+						g_fLastAction[i] = currentTime; // Reset last action time to prevent immediate kick
+						PrintToChatAll("%N has been moved to spectator for being AFK.", i);
+						ChangeClientTeam(i, 1);
+					}
+				}
+				else if (g_hAFKAction.IntValue == 2 && !IsImmune(i, true)) // Kick
+				{
+					RemoveAFKEntity(i);
+					PrintToChatAll("%N has been kicked for being AFK.", i);
+					KickClient(i, "You were kicked for being AFK.");
+					return Plugin_Continue;
+				}
+			}
+
+			if (timeSinceLastAction >= afkTime && !g_bIsAFK[i]) // has been AFK for sm_afk_time
 			{
 				g_bIsAFK[i] = true;
 				if (g_hDisplayAFKMessage.BoolValue)
@@ -75,7 +136,7 @@ public Action Timer_CheckAFK(Handle timer)
 					CreateAFKEntity(i, timeSinceLastAction);
 				}
 			}
-			else if (timeSinceLastAction < afkTime && g_bIsAFK[i])
+			else if (timeSinceLastAction < afkTime && g_bIsAFK[i]) // Is no longer AFK
 			{
 				g_bIsAFK[i] = false;
 				if (g_hDisplayAFKMessage.BoolValue)
@@ -107,7 +168,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 {
 	if (IsClientInGame(client) && !IsFakeClient(client))
 	{
-		if (buttons != 0 || vel[0] != 0.0 || vel[1] != 0.0 || vel[2] != 0.0 || mouse[0] != 0 || mouse[1] != 0)
+		if (buttons != 0)
 		{
 			g_fLastAction[client] = GetEngineTime();
 		}
@@ -151,7 +212,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 		char buffer[64];
 		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
 		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
-		DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255");
+		DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "font", "8");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "textsize", "6");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "orientation", "1");
@@ -173,7 +234,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 	if (g_iAFKTextEntity[client] != -1)
 	{
 		DispatchKeyValue(g_iAFKTextEntity[client], "message", "AFK");
-		DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100");
+		DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
 		DispatchKeyValue(g_iAFKTextEntity[client], "font", "8");
 		DispatchKeyValue(g_iAFKTextEntity[client], "textsize", "8");
 		DispatchKeyValue(g_iAFKTextEntity[client], "orientation", "1");
@@ -199,6 +260,17 @@ void UpdateAFKEntity(int client, float timeSinceLastAction)
 		char buffer[64];
 		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
 		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
+		// set alpha based on dead or alive (avoid having to recreate objects)
+		if (IsPlayerAlive(client))
+		{
+			DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
+			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
+		}
+		else
+		{
+			DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 0");
+			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 0");
+		}
 	}
 }
 
