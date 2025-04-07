@@ -213,7 +213,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
 		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
 		DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
-		DispatchKeyValue(g_iAFKTimerEntity[client], "font", "8");
+		DispatchKeyValue(g_iAFKTimerEntity[client], "font", "0");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "textsize", "6");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "orientation", "1");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "targetname", "afk_entity");	// Set targetname
@@ -235,7 +235,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 	{
 		DispatchKeyValue(g_iAFKTextEntity[client], "message", "AFK");
 		DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
-		DispatchKeyValue(g_iAFKTextEntity[client], "font", "8");
+		DispatchKeyValue(g_iAFKTextEntity[client], "font", "0");
 		DispatchKeyValue(g_iAFKTextEntity[client], "textsize", "8");
 		DispatchKeyValue(g_iAFKTextEntity[client], "orientation", "1");
 		DispatchKeyValue(g_iAFKTextEntity[client], "targetname", "afk_entity");	   // Set targetname
