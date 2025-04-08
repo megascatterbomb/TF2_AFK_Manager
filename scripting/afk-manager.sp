@@ -125,8 +125,7 @@ public Action Timer_CheckAFK(Handle timer)
 					if (GetClientTeam(i) == 1 && !IsImmune(i, true)) // If already in spectator, kick
 					{
 						RemoveAFKEntity(i);
-						PrintToChatAll("%N has been kicked for being AFK.", i);
-						KickClient(i, "You were kicked for being AFK.");
+						KickClient(i, "Kicked for being AFK.");
 						continue;
 					}
 					else if (GetClientTeam(i) != 1) // Move player to spectator team
@@ -139,8 +138,7 @@ public Action Timer_CheckAFK(Handle timer)
 				else if (g_hAFKAction.IntValue == 2 && !IsImmune(i, true)) // Kick
 				{
 					RemoveAFKEntity(i);
-					PrintToChatAll("%N has been kicked for being AFK.", i);
-					KickClient(i, "You were kicked for being AFK.");
+					KickClient(i, "Kicked for being AFK.");
 					continue;
 				}
 			}
