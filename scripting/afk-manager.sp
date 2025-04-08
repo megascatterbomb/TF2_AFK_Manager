@@ -21,7 +21,7 @@ public Plugin myinfo =
 	name		= "[TF2] AFK Manager",
 	author		= "roxrosykid",
 	description = "Notifies others if player went AFK and renders AFK message above players' head.",
-	version		= "1.0.4",
+	version		= "1.1.0",
 	url			= "https://github.com/roxrosykid"
 };
 
@@ -64,6 +64,11 @@ public void OnClientPutInServer(int client)
 	g_bIsAFK[client]		  = false;
 	g_iAFKTextEntity[client]  = -1;
 	g_iAFKTimerEntity[client] = -1;
+}
+
+public void OnClientDisconnect(int client)
+{
+	RemoveAFKEntity(client);
 }
 
 bool IsImmune(client, isKick)
@@ -168,9 +173,10 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 {
 	if (IsClientInGame(client) && !IsFakeClient(client))
 	{
-		if (buttons != 0)
+		if (buttons != 0 || impulse != 0)
 		{
 			g_fLastAction[client] = GetEngineTime();
+			RemoveAFKEntity(client);
 		}
 	}
 
