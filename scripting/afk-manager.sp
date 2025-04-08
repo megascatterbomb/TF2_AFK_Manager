@@ -336,12 +336,13 @@ void UpdateAFKEntity(int client, float timeSinceLastAction)
 		char buffer[64];
 		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
 		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
+
 		// set alpha based on dead or alive (avoid having to recreate objects)
 		if (!IsPlayerAlive(client) || TF2_IsPlayerInCondition(client, TFCond_Cloaked))
 		{
 			if (g_iAFKTextEntity[client] > 0)
 			{
-				DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 0");
+				DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 255 255 0");
 			}
 			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 0");
 		}
@@ -349,7 +350,17 @@ void UpdateAFKEntity(int client, float timeSinceLastAction)
 		{
 			if (g_iAFKTextEntity[client] > 0)
 			{
-				DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
+				int team = GetClientTeam(client);
+				char color[64];
+				if (team == 2) // RED
+				{
+					Format(color, sizeof(color), "255 100 100 255");
+				}
+				else // BLU
+				{
+					Format(color, sizeof(color), "100 100 255 255");
+				}
+				DispatchKeyValue(g_iAFKTextEntity[client], "color", color);
 			}
 			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
 		}
