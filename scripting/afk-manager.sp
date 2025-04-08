@@ -58,6 +58,9 @@ public void OnPluginStart()
 	// Create default config and execute it for plugin
 	AutoExecConfig(true, "afk-manager")
 
+	HookEvent("player_team", OnPlayerTeamChange);
+	HookEvent("teamplay_round_start", OnRoundStart);
+
 	// Hook the ConVar change
 	g_hDisplayTextEntities.AddChangeHook(OnDisplayTextEntitiesChanged);
 
@@ -82,6 +85,51 @@ public void OnClientPutInServer(int client)
 public void OnClientDisconnect(int client)
 {
 	RemoveAFKEntity(client);
+}
+
+// If a player goes in or out of spectator, reset their AFK status.
+public void OnPlayerTeamChange(Handle event, const char[] name, bool dontBroadcast) {
+    int userid = GetEventInt(event, "userid"); // Get the user ID of the player
+	int oldteam = GetEventInt(event, "oldteam"); // Get the old team of the player
+	int newteam = GetEventInt(event, "team"); // Get the new team of the player
+	int client = GetClientOfUserId(userid); // Get the client index from the user ID
+
+	 // We don't want to affect players going between RED and BLU to avoid messing with VSH, ZI, etc.
+	if (client <= 0 || (oldteam != 1 && newteam != 1)) 
+	{
+		return;
+	}
+
+	g_fLastAction[client] = GetEngineTime();
+	g_bIsAFK[client]	  = false;
+
+	RemoveAFKEntity(client); // Remove the AFK entity
+}
+
+// Clean up entity handles when a round reset deletes them all.
+public void OnRoundStart(Handle event, const char[] name, bool dontBroadcast) {
+
+	// Run for full reset only
+	bool full_reset = GetEventBool(event, "full_reset");
+
+	if (!full_reset)
+	{
+		return;
+	}
+
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		// Wipe entity arrays
+		g_iAFKTextEntity[i]  = -1;
+		g_iAFKTimerEntity[i] = -1;
+
+		// Recreate entity if need be
+		if (g_bIsAFK[i] && g_hDisplayTextEntities.BoolValue)
+		{
+			float timeSinceLastAction = GetEngineTime() - g_fLastAction[i];
+			CreateAFKEntity(i, timeSinceLastAction);
+		}
+	}
 }
 
 bool IsImmune(client, isKick)
@@ -114,6 +162,7 @@ public Action Timer_CheckAFK(Handle timer)
 		if (IsClientInGame(i) && !IsFakeClient(i))
 		{
 			float timeSinceLastAction = currentTime - g_fLastAction[i];
+			int team = GetClientTeam(i); 
 
 			if (g_hAFKIgnoreDead.IntValue == 1 && !IsPlayerAlive(i)) // Ignore AFK time for dead players
 			{
@@ -127,15 +176,15 @@ public Action Timer_CheckAFK(Handle timer)
 			{
 				if (g_hAFKAction.IntValue == 1 && !IsImmune(i, false)) // Move to spectator
 				{
-					if (GetClientTeam(i) == 1 && !IsImmune(i, true)) // If already in spectator, kick
+					if (team == 1 && !IsImmune(i, true)) // If already in spectator, kick
 					{
 						RemoveAFKEntity(i);
 						KickClient(i, "Kicked for being AFK.");
 						continue;
 					}
-					else if (GetClientTeam(i) != 1) // Move player to spectator team
+					else if (team != 1) // Move player to spectator team
 					{
-						g_fLastAction[i] = currentTime; // Reset last action time to prevent immediate kick
+						// Last action time will reset on team change. This prevents immediate kick.
 						PrintToChatAll("%N has been moved to spectator for being AFK.", i);
 						ChangeClientTeam(i, 1);
 					}
@@ -148,6 +197,11 @@ public Action Timer_CheckAFK(Handle timer)
 				}
 			}
 
+			if (team != 2 && team != 3)
+			{
+				continue;
+			}
+
 			if (timeSinceLastAction >= afkTime && !g_bIsAFK[i]) // has been AFK for sm_afk_time
 			{
 				g_bIsAFK[i] = true;
@@ -155,7 +209,7 @@ public Action Timer_CheckAFK(Handle timer)
 				{
 					PrintToChatAll("%N is now AFK.", i);
 				}
-				if (g_hDisplayTextEntities.BoolValue && GetClientTeam(i) > 1)
+				if (g_hDisplayTextEntities.BoolValue)
 				{
 					CreateAFKEntity(i, timeSinceLastAction);
 				}
@@ -175,12 +229,6 @@ public Action Timer_CheckAFK(Handle timer)
 			else if (g_bIsAFK[i] && g_hDisplayTextEntities.BoolValue)
 			{
 				UpdateAFKEntity(i, timeSinceLastAction);
-			}
-
-			// Check if player is in spectator team and remove AFK entities if so
-			if (GetClientTeam(i) == 1 && g_bIsAFK[i] && g_hDisplayTextEntities.BoolValue)
-			{
-				RemoveAFKEntity(i);
 			}
 		}
 	}
