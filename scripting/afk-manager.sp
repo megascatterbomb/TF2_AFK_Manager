@@ -50,6 +50,9 @@ public void OnPluginStart()
 	// Create the ConVar for displaying text entities
 	g_hDisplayTextEntities = CreateConVar("sm_afk_text", "1", "Display text entities above AFK players (1 = Yes, 0 = No)", FCVAR_NONE, true, 0.0, true, 1.0);
 
+	// Create default config and execute it for plugin
+	AutoExecConfig(true, "afk-manager")
+
 	// Hook the ConVar change
 	g_hDisplayTextEntities.AddChangeHook(OnDisplayTextEntitiesChanged);
 
@@ -63,7 +66,6 @@ public void OnPluginStart()
 
 	DeleteEntitiesWithTargetname("afk_entity");
 }
-
 public void OnClientPutInServer(int client)
 {
 	g_fLastAction[client]	  = GetEngineTime();
