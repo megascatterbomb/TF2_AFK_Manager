@@ -11,7 +11,7 @@ ConVar g_hAFKIgnoreDead;		  // ConVar for ignoring dead players
 ConVar g_hAFKAction;			  // ConVar for AFK action
 ConVar g_hAdminImmune;		  // ConVar for admin immunity
 ConVar g_hDisplayAFKMessage;	  // ConVar for displaying AFK message notification
-ConVar g_hMessageFont;		  // ConVar for font number
+ConVar g_hTextFont;		  // ConVar for font number
 ConVar g_hDisplayTextEntities;	  // ConVar for displaying text entities
 
 const float AFK_CHECK_INTERVAL = 1.0; // Maximum number of players
@@ -35,7 +35,7 @@ public void OnPluginStart()
 	g_hIdleMaxTime		   = FindConVar("mp_idlemaxtime");	// Get the idle max time ConVar
 
 	// Create the ConVar for AFK time
-	g_hAFKTime			   = CreateConVar("sm_afk_time", "300.0", "Time in seconds before a player is considered AFK", FCVAR_NONE, true, 0.0);
+	g_hAFKTime			   = CreateConVar("sm_afk_time", "120.0", "Time in seconds before a player is considered AFK", FCVAR_NONE, true, 0.0);
 
 	// Create the ConVar for ignoring dead players
 	g_hAFKIgnoreDead	   = CreateConVar("sm_afk_ignore_dead", "0", "Pause AFK timer for dead players (0 = No, 1 = Yes)", FCVAR_NONE, true, 0.0, true, 1.0);
@@ -50,7 +50,7 @@ public void OnPluginStart()
 	g_hDisplayAFKMessage   = CreateConVar("sm_afk_message", "1", "Display AFK message notification (1 = Yes, 0 = No)", FCVAR_NONE, true, 0.0, true, 1.0);
 
 	// Create the ConVar for font number
-	g_hMessageFont		   = CreateConVar("sm_afk_message_font", "0", "Font number for AFK message notification. See https://developer.valvesoftware.com/wiki/Point_worldtext", FCVAR_NONE, true, 0.0, true, 12.0);
+	g_hTextFont		   = CreateConVar("sm_afk_text_font", "0", "Font number for AFK message notification. See https://developer.valvesoftware.com/wiki/Point_worldtext", FCVAR_NONE, true, 0.0, true, 12.0);
 
 	// Create the ConVar for displaying text entities
 	g_hDisplayTextEntities = CreateConVar("sm_afk_text", "1", "Display text entities above AFK players (1 = Yes, 0 = No)", FCVAR_NONE, true, 0.0, true, 1.0);
@@ -235,7 +235,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 	if (g_iAFKTimerEntity[client] != -1)
 	{
 		char font[64];
-		Format(font, sizeof(font), "%d", g_hMessageFont.IntValue);
+		Format(font, sizeof(font), "%d", g_hTextFont.IntValue);
 
 		DispatchKeyValue(g_iAFKTimerEntity[client], "font", font);
 		DispatchKeyValue(g_iAFKTimerEntity[client], "textsize", "6");
@@ -258,7 +258,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 	if (g_iAFKTextEntity[client] != -1)
 	{
 		char font[64];
-		Format(font, sizeof(font), "%d", g_hMessageFont.IntValue);
+		Format(font, sizeof(font), "%d", g_hTextFont.IntValue);
 
 		DispatchKeyValue(g_iAFKTextEntity[client], "message", "AFK");
 		DispatchKeyValue(g_iAFKTextEntity[client], "font", font);

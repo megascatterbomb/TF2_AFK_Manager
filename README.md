@@ -23,11 +23,15 @@ Typical dustbowl gameplay.
 
 ## Usage
 
-The plugin comes with several ConVars that can be configured to customize its behavior:
+The plugin comes with several ConVars that can be configured to customize its behavior. You can adjust these cvars in `cfg/sourcemod/afk-manager.cfg`
 - **ConVars**:
-  - `sm_afk_time`: Sets the time in seconds before a player is considered AFK. Default is `300.0` seconds (5 minutes).
+  - `sm_afk_time`: Sets the time in seconds before a player is considered AFK. Default is `120.0` seconds (2 minutes).
+  - `sm_afk_ignore_dead`: Pauses the AFK timer for dead players. Intended for use with gamemodes where players may be dead for long periods of time, such as Arena or VSH. `1` for enabled, `0` for disabled. Default is `0`.
+  - `sm_afk_action`: Determines the action to take against players who have been idle for `mp_idlemaxtime` minutes. `0` to do nothing, `1` to move the player into spectator and later kick, `2` to kick. Default is `1`.
+  - `sm_afk_admin_immune`: Determines if admins with the generic (`b`) or root (`z`) flags should be affected by anti-AFK actions. `0` for no immunity, `1` for immunity against all actions, `2` for immunity to kicks only.
   - `sm_afk_message`: Toggles the display of AFK message notifications in the chat. `1` for enabled, `0` for disabled. Default is `1`.
   - `sm_afk_text`: Toggles the display of text entities above AFK players. `1` for enabled, `0` for disabled. Default is `1`.
+  - `sm_afk_text_font`: Controls the font used for AFK text entities. See available fonts [here](https://developer.valvesoftware.com/wiki/Point_worldtext). `0` is minimum, `12` is maximum. Default is `0`.
 
 ### Example Configuration
 
