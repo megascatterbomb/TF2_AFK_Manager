@@ -164,7 +164,7 @@ public Action Timer_CheckAFK(Handle timer)
 			float timeSinceLastAction = currentTime - g_fLastAction[i];
 			int team = GetClientTeam(i); 
 
-			if (g_hAFKIgnoreDead.IntValue == 1 && !IsPlayerAlive(i)) // Ignore AFK time for dead players
+			if (g_hAFKIgnoreDead.IntValue == 1 && (team == 2 || team == 3) && !IsPlayerAlive(i)) // Ignore AFK time for dead players
 			{
 				// We increment the lastAction time at the same interval that this function is called.
 				// This effectively pauses the AFK timer for dead players.
