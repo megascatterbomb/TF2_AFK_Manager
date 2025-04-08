@@ -6,10 +6,13 @@ ConVar g_hIdleMaxTime;	// ConVar for idle max time
 
 // Plugin ConVars
 ConVar g_hAFKTime;				  // ConVar for AFK time
+ConVar g_hAFKIgnoreDead;		  // ConVar for ignoring dead players
 ConVar g_hAFKAction;			  // ConVar for AFK action
 ConVar g_hAdminImmune;		  // ConVar for admin immunity
 ConVar g_hDisplayAFKMessage;	  // ConVar for displaying AFK message notification
 ConVar g_hDisplayTextEntities;	  // ConVar for displaying text entities
+
+const float AFK_CHECK_INTERVAL = 1.0; // Maximum number of players
 
 float  g_fLastAction[MAXPLAYERS + 1];
 bool   g_bIsAFK[MAXPLAYERS + 1];
@@ -32,6 +35,9 @@ public void OnPluginStart()
 	// Create the ConVar for AFK time
 	g_hAFKTime			   = CreateConVar("sm_afk_time", "300.0", "Time in seconds before a player is considered AFK", FCVAR_NONE, true, 0.0);
 
+	// Create the ConVar for ignoring dead players
+	g_hAFKIgnoreDead	   = CreateConVar("sm_afk_ignore_dead", "0", "Pause AFK timer for dead players (0 = No, 1 = Yes)", FCVAR_NONE, true, 0.0, true, 1.0);
+
 	// Create the ConVar for AFK action
 	g_hAFKAction		   = CreateConVar("sm_afk_action", "1", "Action to take when a player has been AFK for mp_idlemaxtime minutes (0 = none, 1 = move to spectator then kick if still idle, 2 = kick)", FCVAR_NONE, true, 0.0, true, 2.0);
 
@@ -47,7 +53,7 @@ public void OnPluginStart()
 	// Hook the ConVar change
 	g_hDisplayTextEntities.AddChangeHook(OnDisplayTextEntitiesChanged);
 
-	CreateTimer(1.0, Timer_CheckAFK, _, TIMER_REPEAT);
+	CreateTimer(AFK_CHECK_INTERVAL, Timer_CheckAFK, _, TIMER_REPEAT);
 
 	float fTime = GetEngineTime();
 	for (int i = 0; i <= MaxClients; i++)
@@ -102,6 +108,14 @@ public Action Timer_CheckAFK(Handle timer)
 		{
 			float timeSinceLastAction = currentTime - g_fLastAction[i];
 
+			if (g_hAFKIgnoreDead.IntValue == 1 && !IsPlayerAlive(i)) // Ignore AFK time for dead players
+			{
+				// We increment the lastAction time at the same interval that this function is called.
+				// This effectively pauses the AFK timer for dead players.
+				g_fLastAction[i] = g_fLastAction[i] + AFK_CHECK_INTERVAL; 
+				continue;
+			}
+
 			if (timeSinceLastAction >= actionTime && g_hAFKAction.IntValue > 0) // has been AFK for mp_idlemaxtime minutes
 			{
 				if (g_hAFKAction.IntValue == 1 && !IsImmune(i, false)) // Move to spectator
@@ -111,7 +125,7 @@ public Action Timer_CheckAFK(Handle timer)
 						RemoveAFKEntity(i);
 						PrintToChatAll("%N has been kicked for being AFK.", i);
 						KickClient(i, "You were kicked for being AFK.");
-						return Plugin_Continue;
+						continue;
 					}
 					else if (GetClientTeam(i) != 1) // Move player to spectator team
 					{
@@ -125,7 +139,7 @@ public Action Timer_CheckAFK(Handle timer)
 					RemoveAFKEntity(i);
 					PrintToChatAll("%N has been kicked for being AFK.", i);
 					KickClient(i, "You were kicked for being AFK.");
-					return Plugin_Continue;
+					continue;
 				}
 			}
 
@@ -282,12 +296,12 @@ void UpdateAFKEntity(int client, float timeSinceLastAction)
 
 void RemoveAFKEntity(int client)
 {
-	if (g_iAFKTextEntity[client] != -1)
+	if (g_iAFKTextEntity[client] > 0)
 	{
 		RemoveEntity(g_iAFKTextEntity[client]);
 		g_iAFKTextEntity[client] = -1;
 	}
-	if (g_iAFKTimerEntity[client] != -1)
+	if (g_iAFKTimerEntity[client] > 0)
 	{
 		RemoveEntity(g_iAFKTimerEntity[client]);
 		g_iAFKTimerEntity[client] = -1;
