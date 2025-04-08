@@ -1,5 +1,6 @@
 #include <sourcemod>
 #include <sdktools>
+#include <tf2_stocks>
 
 // TF2 ConVars
 ConVar g_hIdleMaxTime;	// ConVar for idle max time
@@ -10,6 +11,7 @@ ConVar g_hAFKIgnoreDead;		  // ConVar for ignoring dead players
 ConVar g_hAFKAction;			  // ConVar for AFK action
 ConVar g_hAdminImmune;		  // ConVar for admin immunity
 ConVar g_hDisplayAFKMessage;	  // ConVar for displaying AFK message notification
+ConVar g_hMessageFont;		  // ConVar for font number
 ConVar g_hDisplayTextEntities;	  // ConVar for displaying text entities
 
 const float AFK_CHECK_INTERVAL = 1.0; // Maximum number of players
@@ -46,6 +48,9 @@ public void OnPluginStart()
 
 	// Create the ConVar for displaying AFK message notification
 	g_hDisplayAFKMessage   = CreateConVar("sm_afk_message", "1", "Display AFK message notification (1 = Yes, 0 = No)", FCVAR_NONE, true, 0.0, true, 1.0);
+
+	// Create the ConVar for font number
+	g_hMessageFont		   = CreateConVar("sm_afk_message_font", "0", "Font number for AFK message notification. See https://developer.valvesoftware.com/wiki/Point_worldtext", FCVAR_NONE, true, 0.0, true, 12.0);
 
 	// Create the ConVar for displaying text entities
 	g_hDisplayTextEntities = CreateConVar("sm_afk_text", "1", "Display text entities above AFK players (1 = Yes, 0 = No)", FCVAR_NONE, true, 0.0, true, 1.0);
@@ -229,11 +234,10 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 	g_iAFKTimerEntity[client] = CreateEntityByName("point_worldtext");
 	if (g_iAFKTimerEntity[client] != -1)
 	{
-		char buffer[64];
-		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
-		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
-		DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
-		DispatchKeyValue(g_iAFKTimerEntity[client], "font", "0");
+		char font[64];
+		Format(font, sizeof(font), "%d", g_hMessageFont.IntValue);
+
+		DispatchKeyValue(g_iAFKTimerEntity[client], "font", font);
 		DispatchKeyValue(g_iAFKTimerEntity[client], "textsize", "6");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "orientation", "1");
 		DispatchKeyValue(g_iAFKTimerEntity[client], "targetname", "afk_entity");	// Set targetname
@@ -253,9 +257,11 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 	g_iAFKTextEntity[client] = CreateEntityByName("point_worldtext");
 	if (g_iAFKTextEntity[client] != -1)
 	{
+		char font[64];
+		Format(font, sizeof(font), "%d", g_hMessageFont.IntValue);
+
 		DispatchKeyValue(g_iAFKTextEntity[client], "message", "AFK");
-		DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
-		DispatchKeyValue(g_iAFKTextEntity[client], "font", "0");
+		DispatchKeyValue(g_iAFKTextEntity[client], "font", font);
 		DispatchKeyValue(g_iAFKTextEntity[client], "textsize", "8");
 		DispatchKeyValue(g_iAFKTextEntity[client], "orientation", "1");
 		DispatchKeyValue(g_iAFKTextEntity[client], "targetname", "afk_entity");	   // Set targetname
@@ -271,25 +277,33 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 		SetVariantString("head");
 		AcceptEntityInput(g_iAFKTextEntity[client], "SetParentAttachmentMaintainOffset");
 	}
+
+	UpdateAFKEntity(client, timeSinceLastAction);
 }
 
 void UpdateAFKEntity(int client, float timeSinceLastAction)
 {
-	if (g_iAFKTimerEntity[client] != -1)
+	if (g_iAFKTimerEntity[client] > 0)
 	{
 		char buffer[64];
 		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
 		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
 		// set alpha based on dead or alive (avoid having to recreate objects)
-		if (IsPlayerAlive(client))
+		if (!IsPlayerAlive(client) || TF2_IsPlayerInCondition(client, TFCond_Cloaked))
 		{
-			DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
-			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
+			if (g_iAFKTextEntity[client] > 0)
+			{
+				DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 0");
+			}
+			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 0");
 		}
 		else
 		{
-			DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 0");
-			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 0");
+			if (g_iAFKTextEntity[client] > 0)
+			{
+				DispatchKeyValue(g_iAFKTextEntity[client], "color", "255 100 100 255");
+			}
+			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
 		}
 	}
 }
