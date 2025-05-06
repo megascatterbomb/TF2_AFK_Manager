@@ -74,6 +74,7 @@ public void OnPluginStart()
 
 	DeleteEntitiesWithTargetname("afk_entity");
 }
+
 public void OnClientPutInServer(int client)
 {
 	g_fLastAction[client]	  = GetEngineTime();
@@ -275,12 +276,17 @@ public Action OnClientSayCommand(int client, const char[] command, const char[] 
 void CreateAFKEntity(int client, float timeSinceLastAction)
 {
 	float origin[3];
+	if (!IsClientConnected(client) || !IsClientInGame(client) || IsFakeClient(client))
+	{
+		RemoveAFKEntity(client);
+		return;
+	}
 	GetClientAbsOrigin(client, origin);
 	origin[2] += 6.0;	 // Adjust height above player's head
 
 	// Create AFK timer entity
 	g_iAFKTimerEntity[client] = CreateEntityByName("point_worldtext");
-	if (g_iAFKTimerEntity[client] != -1)
+	if (g_iAFKTimerEntity[client] > 0)
 	{
 		char font[64];
 		Format(font, sizeof(font), "%d", g_hTextFont.IntValue);
@@ -303,7 +309,7 @@ void CreateAFKEntity(int client, float timeSinceLastAction)
 
 	// Create AFK text entity
 	g_iAFKTextEntity[client] = CreateEntityByName("point_worldtext");
-	if (g_iAFKTextEntity[client] != -1)
+	if (g_iAFKTextEntity[client] > 0)
 	{
 		char font[64];
 		Format(font, sizeof(font), "%d", g_hTextFont.IntValue);
@@ -371,13 +377,15 @@ void RemoveAFKEntity(int client)
 {
 	if (g_iAFKTextEntity[client] > 0)
 	{
-		RemoveEntity(g_iAFKTextEntity[client]);
+		int index = g_iAFKTextEntity[client];
 		g_iAFKTextEntity[client] = -1;
+		RemoveEntity(index);
 	}
 	if (g_iAFKTimerEntity[client] > 0)
 	{
-		RemoveEntity(g_iAFKTimerEntity[client]);
+		int index = g_iAFKTimerEntity[client];
 		g_iAFKTimerEntity[client] = -1;
+		RemoveEntity(index);
 	}
 }
 
