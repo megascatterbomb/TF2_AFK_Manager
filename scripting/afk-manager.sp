@@ -1,6 +1,6 @@
 #include <sourcemod>
 #include <sdktools>
-#include <tf2_stocks>
+// #include <tf2_stocks>
 
 // TF2 ConVars
 ConVar g_hIdleMaxTime;	// ConVar for idle max time
@@ -14,12 +14,14 @@ ConVar g_hDisplayAFKMessage;	  // ConVar for displaying AFK message notification
 ConVar g_hTextFont;		  // ConVar for font number
 ConVar g_hDisplayTextEntities;	  // ConVar for displaying text entities
 
-const float AFK_CHECK_INTERVAL = 1.0; // Maximum number of players
 
 float  g_fLastAction[MAXPLAYERS + 1];
 bool   g_bIsAFK[MAXPLAYERS + 1];
 int	   g_iAFKTextEntity[MAXPLAYERS + 1];
 int	   g_iAFKTimerEntity[MAXPLAYERS + 1];
+
+int g_iPlayerCondOffset;
+float g_AFK_CheckInterval;
 
 public Plugin myinfo =
 {
@@ -32,6 +34,17 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
+	int iSharedOffset = FindSendPropInfo("CTFPlayer", "m_Shared");
+    int iCondOffset   = 204; // hardcoded af
+
+    if (iSharedOffset == -1 || iCondOffset == -1)
+    {
+        SetFailState("Failed to find sendprop offsets!");
+    }
+
+	g_iPlayerCondOffset = iSharedOffset + iCondOffset;
+	g_AFK_CheckInterval = 1.0 / 3.0;
+
 	g_hIdleMaxTime		   = FindConVar("mp_idlemaxtime");	// Get the idle max time ConVar
 
 	// Create the ConVar for AFK time
@@ -64,7 +77,7 @@ public void OnPluginStart()
 	// Hook the ConVar change
 	g_hDisplayTextEntities.AddChangeHook(OnDisplayTextEntitiesChanged);
 
-	CreateTimer(AFK_CHECK_INTERVAL, Timer_CheckAFK, _, TIMER_REPEAT);
+	CreateTimer(g_AFK_CheckInterval, Timer_CheckAFK, _, TIMER_REPEAT);
 
 	float fTime = GetEngineTime();
 	for (int i = 0; i <= MaxClients; i++)
@@ -165,11 +178,11 @@ public Action Timer_CheckAFK(Handle timer)
 			float timeSinceLastAction = currentTime - g_fLastAction[i];
 			int team = GetClientTeam(i); 
 
-			if (g_hAFKIgnoreDead.IntValue == 1 && (team == 2 || team == 3) && !IsPlayerAlive(i)) // Ignore AFK time for dead players
+			if (g_hAFKIgnoreDead.IntValue == 1 && team >= 2 && !IsPlayerAlive(i)) // Ignore AFK time for dead players
 			{
 				// We increment the lastAction time at the same interval that this function is called.
 				// This effectively pauses the AFK timer for dead players.
-				g_fLastAction[i] = g_fLastAction[i] + AFK_CHECK_INTERVAL; 
+				g_fLastAction[i] = g_fLastAction[i] + g_AFK_CheckInterval; 
 				continue;
 			}
 
@@ -198,7 +211,7 @@ public Action Timer_CheckAFK(Handle timer)
 				}
 			}
 
-			if (team != 2 && team != 3)
+			if (team < 2)
 			{
 				continue;
 			}
@@ -343,8 +356,11 @@ void UpdateAFKEntity(int client, float timeSinceLastAction)
 		FormatTimeString(timeSinceLastAction, buffer, sizeof(buffer));
 		DispatchKeyValue(g_iAFKTimerEntity[client], "message", buffer);
 
+		int cond = GetEntData(client, g_iPlayerCondOffset);
+
 		// set alpha based on dead or alive (avoid having to recreate objects)
-		if (!IsPlayerAlive(client) || TF2_IsPlayerInCondition(client, TFCond_Cloaked))
+		// (1 << 4) is checking TF_COND_STEALTHED
+		if (!IsPlayerAlive(client) || (cond & (1 << 4)))
 		{
 			if (g_iAFKTextEntity[client] > 0)
 			{
@@ -362,11 +378,25 @@ void UpdateAFKEntity(int client, float timeSinceLastAction)
 				{
 					Format(color, sizeof(color), "255 100 100 255");
 				}
-				else // BLU
+				else if (team == 3) // BLU
 				{
 					Format(color, sizeof(color), "100 100 255 255");
 				}
+				else if (team == 4) // GRN
+				{
+					Format(color, sizeof(color), "100 255 100 255");
+				}
+				else if (team == 5) // YLW
+				{
+					Format(color, sizeof(color), "255 255 100 255");
+				}
+				else
+				{
+					Format(color, sizeof(color), "255 255 255 0");
+				}
+
 				DispatchKeyValue(g_iAFKTextEntity[client], "color", color);
+			
 			}
 			DispatchKeyValue(g_iAFKTimerEntity[client], "color", "255 255 255 255");
 		}
